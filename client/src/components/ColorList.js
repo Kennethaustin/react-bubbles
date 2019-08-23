@@ -1,15 +1,21 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { axiosWithAuth } from '../utilities/axiosWithAuth';
 
 const initialColor = {
   color: "",
   code: { hex: "" }
 };
 
-const ColorList = ({ colors, updateColors }) => {
-  console.log(colors);
+const ColorList = ({ colors, updateColors, ...props }) => {
+ 
   const [editing, setEditing] = useState(false);
   const [colorToEdit, setColorToEdit] = useState(initialColor);
+  const[newColor, setNewColor] = useState({
+    code: {
+      hex: ''
+    },
+    color: ''
+  });
 
   const editColor = color => {
     setEditing(true);
@@ -18,36 +24,92 @@ const ColorList = ({ colors, updateColors }) => {
 
   const saveEdit = e => {
     e.preventDefault();
+    axiosWithAuth()
+      
+    .put(`http://localhost:5000/api/colors/${colorToEdit.id}`, colorToEdit)
+      .then(res => {
+        setEditing(!editing);
+        updateColors(res.data);
+      })
+      .catch(err => {
+        console.log(err);
+      })
     // Make a put request to save your updated color
     // think about where will you get the id from...
     // where is is saved right now?
   };
 
-  const deleteColor = color => {
+  const deleteColor = (color, event) => {
     // make a delete request to delete this color
+    event.stopPropagation();
+    axiosWithAuth()
+      .delete(`http://localhost:5000/api/colors/${color.id}`)
+      .then(res => {
+        updateColors(res.data);
+      })
   };
+  const handleChange = e => {
+    if (e.target.name === 'code') {
+      setNewColor({
+        ...newColor,
+        code: {
+          hex: e.target.value
+        }
+      })
+    } else {
+      setNewColor({
+        ...newColor,
+        [e.target.name]: e.target.value
+      })
+    }
+    console.log(newColor)
+  }
+
+  const addColor = (e, newColor) => {
+    e.preventDefault();
+    axiosWithAuth()
+      .post('http://localhost:5000/api/colors', newColor)
+      .then(res => {
+        console.log(res);
+        updateColors(res.data);
+        setNewColor({
+          color: '',
+          code: {
+            hex: ''
+          }
+        })
+      })
+      .catch(err => {
+        console.log(err);
+      })
+  }
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    props.props.history.push('/');
+  }
 
   return (
     <div className="colors-wrap">
       <p>colors</p>
       <ul>
-        {colors.map(color => (
-          <li key={color.color} onClick={() => editColor(color)}>
+        {colors.map((color, index) => (
+          <li key={index} onClick={() => editColor(color)}>
             <span>
-              <span className="delete" onClick={() => deleteColor(color)}>
+              <span className="delete" onClick={(e) => deleteColor(color, e)}>
                 x
               </span>{" "}
               {color.color}
-            </span>
-            <div
+              </span>
+              <div
               className="color-box"
               style={{ backgroundColor: color.code.hex }}
-            />
-          </li>
+        />      
+        </li>
         ))}
       </ul>
       {editing && (
-        <form onSubmit={saveEdit}>
+        <form className="edit-color-form" onSubmit={saveEdit}>
           <legend>edit color</legend>
           <label>
             color name:
@@ -76,8 +138,27 @@ const ColorList = ({ colors, updateColors }) => {
           </div>
         </form>
       )}
-      <div className="spacer" />
-      {/* stretch - build another form here to add a color */}
+      <div className="spacer">
+        <form onSubmit={(e) => addColor(e, newColor)} className="add-color-form">
+          <input
+            name='color'
+            placeholder="Color Name"
+            onChange={(e) => handleChange(e)}
+            value={newColor.color}
+            required
+          />
+
+          <input
+            name='code'
+            placeholder="Hex Code"
+            onChange={(e) => handleChange(e)}
+            value={newColor.code.hex}
+            required
+          />
+          <button type="submit">Add Color</button>
+        </form>
+      </div> 
+      <button onClick={logout} className="logout-btn">Logout</button>
     </div>
   );
 };
